@@ -1,0 +1,288 @@
+/*
+ * timer.c
+ *
+ *  Created on: ٢٥‏/١٠‏/٢٠٢٢
+ *      Author: Engineer
+ */
+
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#include "timer.h"
+
+
+
+
+/****************************************************************************
+ *
+ *                           GLOBAL VARIABLES
+ *
+ ***************************************************************************/
+
+static volatile void (*g_Timer0_callBackPtr)(void) = NULL_PTR;
+static volatile void (*g_Timer1_callBackPtr)(void) = NULL_PTR;
+static volatile void (*g_Timer2_callBackPtr)(void) = NULL_PTR;
+
+
+
+
+/***************************************************************************
+ *
+ *                             ISRs
+ *
+ ***************************************************************************/
+
+/*******************************TIMER0************************************/
+ISR(TIMER0_OVF_vect)
+{
+	if(g_Timer0_callBackPtr != NULL_PTR)
+	{
+		(*g_Timer0_callBackPtr)();
+	}
+}
+
+ISR(TIMER0_COMP_vect)
+{
+	if(g_Timer0_callBackPtr != NULL_PTR)
+	{
+		/* Call the Call Back function in the application after the edge is detected */
+		(*g_Timer0_callBackPtr)(); /* another method to call the function using pointer to function g_callBackPtr(); */
+	}
+}
+
+/********************************TIMER1********************************/
+ISR(TIMER1_OVF_vect)
+{
+	if(g_Timer1_callBackPtr != NULL_PTR)
+	{
+		/* Call the Call Back function in the application after the edge is detected */
+		(*g_Timer1_callBackPtr)(); /* another method to call the function using pointer to function g_callBackPtr(); */
+	}
+}
+
+ISR(TIMER1_COMPA_vect)
+{
+	if(g_Timer1_callBackPtr != NULL_PTR)
+	{
+		/* Call the Call Back function in the application after the edge is detected */
+		(*g_Timer1_callBackPtr)(); /* another method to call the function using pointer to function g_callBackPtr(); */
+	}
+}
+
+/********************************TIMER2***********************************/
+ISR(TIMER2_OVF_vect)
+{
+	if(g_Timer2_callBackPtr != NULL_PTR)
+	{
+		/* Call the Call Back function in the application after the edge is detected */
+		(*g_Timer2_callBackPtr)(); /* another method to call the function using pointer to function g_callBackPtr(); */
+	}
+}
+ISR(TIMER2_COMP_vect)
+{
+	if(g_Timer2_callBackPtr != NULL_PTR)
+	{
+		/* Call the Call Back function in the application after the edge is detected */
+		(*g_Timer2_callBackPtr)(); /* another method to call the function using pointer to function g_callBackPtr(); */
+	}
+}
+
+
+
+
+/****************************************************************************
+ *
+ *                   Function Definition
+ *
+ ****************************************************************************/
+/*
+ * Description
+ *
+ * Function to initialize the Timer driver
+ */
+void Timer_init(const TIMER_ConfigType * Config_Ptr)
+{
+	switch(Config_Ptr->timer_id)
+	{
+	/**********************************TIMER0*******************************/
+	case TIMER0_ID:
+
+		//non PWM MODE
+		TCCR0 |=(1<<FOC0);
+
+
+		/*
+		 * configure timer wave generation
+		 */
+		TCCR0 = (TCCR0 &0XF7)|((Config_Ptr->timer_mode)<<3 );
+
+
+		/*
+		 *  CLOCK SELCET
+		 */
+
+		TCCR0=(TCCR0 &0XF8) |(Config_Ptr->timer_clock);
+
+		/*
+		 *  overflow or compare
+		 */
+
+		TIMSK |=(1<<Config_Ptr->timer_mode);
+
+		/*
+		 * load TCNT0 with intial value
+		 */
+		TCNT0=(Config_Ptr->intial_value);
+
+		/*
+		 *LOAD OCR0 with compare value
+		 */
+
+
+		if ( Config_Ptr->timer_mode == COMPARE )
+				{
+					/* Insert the required compare value in OCR0 register */
+			OCR0=(Config_Ptr->compare_value);
+					/* Enable Compare Mode flag */
+					TIMSK |= (1<<OCIE0);
+				}
+		break;
+
+		/**************************TIMER1*************************************/
+
+	case TIMER1_ID:
+
+		//non pwm
+		TCCR1A = (1<<FOC1A) | (1<<FOC1B);
+
+
+
+		/*
+		 * clock selcet
+		 *
+		 */
+		TCCR1B =(TCCR1B &0XF8) |(Config_Ptr->timer_clock);
+
+
+
+		/*
+		 * timer mode
+		 *
+		 */
+		TCCR1B = (TCCR1B & 0xF7) | ((Config_Ptr->timer_mode)<<3);
+
+
+		TCNT1=Config_Ptr->intial_value;
+
+
+		if ( Config_Ptr->timer_mode == COMPARE )
+			{
+			/* Insert the required compare value in OCR1A register */
+				OCR1A = Config_Ptr->compare_value;
+					/* Enable Compare Mode flag */
+				TIMSK |= (1<<OCIE1A);
+			}
+		 else if ( Config_Ptr->timer_mode == OVERFLOW )
+			{
+					/* Enable overflow Mode flag */
+				TIMSK |= (1<<TOIE1);
+			}
+
+
+		break; /* End Timer1 */
+
+		/***********************TIMER2****************************************/
+	case TIMER2_ID:
+
+		TCCR0 |= ( 1 << FOC2 );
+
+		TCCR2 = ( TCCR2 & 0xF7 ) | ( ( Config_Ptr->timer_mode ) << 3 );
+
+		TCCR2 = ( TCCR2 & 0xF8 ) | ( Config_Ptr->timer_clock );
+
+		TCNT2 = (Config_Ptr->intial_value);
+
+		if ( Config_Ptr->timer_mode == COMPARE )
+
+		{
+					/* Insert the required compare value in OCR0 register */
+				OCR0 = Config_Ptr->compare_value;
+					/* Enable Compare Mode flag */
+				TIMSK |= (1<<OCIE2);
+		}
+		else if ( Config_Ptr->timer_mode == OVERFLOW )
+
+		{
+					/* Enable overflow Mode flag */
+				TIMSK |= (1<<TOIE2);
+		}
+
+
+		break; /* End Timer2 */
+
+	}
+
+}
+
+void Timer_setCallBack(void(*a_ptr)(void),TIMER_ID timer_number)
+{
+	switch(timer_number)
+	{
+	case TIMER0_ID:
+
+		g_Timer0_callBackPtr=a_ptr;
+		break;
+	case TIMER1_ID:
+		g_Timer1_callBackPtr=a_ptr;
+		break;
+	case TIMER2_ID:
+		g_Timer1_callBackPtr=a_ptr;
+		break;
+
+	}
+}
+
+
+void Timer_DeInit(TIMER_ID timer_number)
+{
+	switch(timer_number)
+	{
+	case TIMER0_ID:
+		TCCR0 &= 0x00;
+		TCNT0 &= 0x00;
+		OCR0 &= 0x00;
+		TIMSK &= ( 1 << OCIE0 ); /* Disable Output Compare Match Interrupt */
+		TIMSK &= ( 1 << TOIE0 ); /* Disable Overflow Interrupt */
+		break;
+
+	case TIMER1_ID:
+		TCCR1A &= 0x00;
+		TCCR1B &= 0x00;
+		TCNT1 &= 0x0000;
+		OCR1A &= 0x0000;
+		TIMSK &= ( 1 << OCIE1A ); /* Disable Output Compare Match Interrupt --> Channel A */
+		TIMSK &= ( 1 << OCIE1B ); /* Disable Output Compare Match Interrupt --> Channel B */
+		TIMSK &= ( 1 << TOIE1 ); /* Disable Overflow Interrupt */
+		break;
+	case TIMER2_ID:
+		TCCR2 &= 0x00;
+		TCNT2 &= 0x00;
+		OCR2 &= 0x00;
+		TIMSK &= ( 1 << OCIE2 ); /* Disable Output Compare Match Interrupt */
+		TIMSK &= ( 1 << TOIE2 ); /* Disable Overflow Interrupt */
+		break;
+	}
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
